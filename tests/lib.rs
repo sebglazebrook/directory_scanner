@@ -11,7 +11,7 @@ mod tests {
     pub use std::sync::mpsc::channel;
     pub use std::sync::{Arc, Mutex};
 
-    describe! stainless {
+    describe! directory_scanner {
 
         before_each {
             let mut path = PathBuf::from("./tests/fixtures/dir-with-11-files/");
@@ -41,10 +41,12 @@ mod tests {
                 before_each {
                     let result_format = ResultFormat::Flat;
                     path = PathBuf::from("./tests/fixtures/dir-with-9-files-in-sub-dirs/");
+
                 }
 
                 it "includes the files in the sub dirs" {
                     let mut directory_scanner = DirectoryScanner::new(path, result_format);
+                    directory_scanner.set_concurrency_limit(0);
                     let results = directory_scanner.scan();
                     assert_eq!(results.len(), 9);
                 }
@@ -57,7 +59,6 @@ mod tests {
                         path = PathBuf::from("./tests/fixtures/dir-with-5-sub-dirs/");
                     }
 
-
                     it "updates the subscriber after each successful directory scan" {
                         {
                             let mut directory_scanner = DirectoryScanner::new(path, result_format);
@@ -69,6 +70,29 @@ mod tests {
                             number_of_updates = number_of_updates + 1;
                         }
                         assert_eq!(number_of_updates, 6);
+                    }
+                }
+            }
+
+            describe! concurrency_limit {
+
+                before_each {
+                    let mut path = PathBuf::from("./tests/fixtures/dir-with-10-sub-dirs/");
+                }
+
+                it "defaults to 9" {
+                    let mut directory_scanner = DirectoryScanner::new(path, result_format);
+                    let _ = directory_scanner.scan();
+                    assert_eq!(directory_scanner.max_concurrency_reached, 9);
+                }
+
+                describe! when_given_a_custom_concurrency_limit {
+
+                    it "does not exceed the given limit" {
+                        let mut directory_scanner = DirectoryScanner::new(path, result_format);
+                        directory_scanner.set_concurrency_limit(2);
+                        let _ = directory_scanner.scan();
+                        assert_eq!(directory_scanner.max_concurrency_reached, 2);
                     }
                 }
             }

@@ -27,10 +27,10 @@ mod tests {
                 assert_eq!(results.len(), 11);
             }
 
-            //it "returns the results as a list of strings" {
-            //assert_eq!(results[0], "first-file");
-            //assert_eq!(results[-1], "last-file");
-            //}
+            it "returns the results as a list of strings" {
+                assert_eq!(results[0], "./tests/fixtures/dir-with-11-files/file-01");
+                assert_eq!(results[10], "./tests/fixtures/dir-with-11-files/file-11");
+            }
         }
 
         //describe! nested_format {

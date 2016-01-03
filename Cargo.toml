@@ -6,7 +6,7 @@ authors = ["Seb Glazebrook <sebastian.glazebrook@redbubble.com>"]
 [lib]
 name = "directory_scanner"
 path = "src/lib.rs"
-
+ 
 
 [dependencies.stainless]
 git = "http://github.com/sebglazebrook/stainless.git"

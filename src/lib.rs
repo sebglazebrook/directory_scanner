@@ -27,6 +27,10 @@ impl DirectoryScanner {
                             let filetype = entry.file_type().unwrap();
                             if filetype.is_file() {
                                 filepaths.push(entry.path().to_str().unwrap().to_string());
+                            } else if filetype.is_dir() && !filetype.is_symlink() {
+                                let path = PathBuf::from(entry.path().to_str().unwrap().to_string());
+                                let sub_filepaths = DirectoryScanner::new(path, ResultFormat::Flat).scan();
+                                filepaths.extend(sub_filepaths.clone());
                             }
                         }
                         Err(_) => {  }

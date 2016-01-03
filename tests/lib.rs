@@ -12,7 +12,7 @@ mod tests {
     describe! stainless {
 
         before_each {
-            let path = PathBuf::from("./tests/fixtures/dir-with-11-files/");
+            let mut path = PathBuf::from("./tests/fixtures/dir-with-11-files/");
         }
 
         describe! flat_format {
@@ -29,7 +29,21 @@ mod tests {
 
             it "returns the results as a list of strings" {
                 assert_eq!(results[0], "./tests/fixtures/dir-with-11-files/file-01");
-                assert_eq!(results[10], "./tests/fixtures/dir-with-11-files/file-11");
+                assert_eq!(results.last().unwrap(), "./tests/fixtures/dir-with-11-files/file-11");
+            }
+
+            describe! with_sub_directories {
+
+                before_each {
+                    let result_format = ResultFormat::Flat;
+                    path = PathBuf::from("./tests/fixtures/dir-with-9-files-in-sub-dirs/");
+                    let mut directory_scanner = DirectoryScanner::new(path, result_format);
+                    let results = directory_scanner.scan();
+                }
+
+                it "includes the files in the sub dirs" {
+                    assert_eq!(results.len(), 9);
+                }
             }
         }
 

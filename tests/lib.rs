@@ -52,21 +52,21 @@ mod tests {
                 describe! when_given_a_subscriber {
 
                     before_each {
+                        let (transmitter, receiver) = channel();
                         let result_format = ResultFormat::Flat;
                         path = PathBuf::from("./tests/fixtures/dir-with-5-sub-dirs/");
-                        let mut directory_scanner = DirectoryScanner::new(path, result_format);
-                        let (transmitter, receiver) = channel();
-                        directory_scanner.add_subscriber(transmitter);
                     }
 
+
                     it "updates the subscriber after each successful directory scan" {
+                        {
+                            let mut directory_scanner = DirectoryScanner::new(path, result_format);
+                            directory_scanner.add_subscriber(transmitter);
+                            directory_scanner.scan();
+                        }
                         let mut number_of_updates = 0;
-                         directory_scanner.scan();
                         for _ in receiver.iter() {
                             number_of_updates = number_of_updates + 1;
-                            if number_of_updates == 6 {
-                                break;
-                            }
                         }
                         assert_eq!(number_of_updates, 6);
                     }

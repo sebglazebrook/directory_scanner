@@ -10,8 +10,57 @@ pub enum ResultFormat {
     Nested,
 }
 
-//ScannerBuilder::new().path(path).nested_results().update_subscriber(subscriber).finish();
-//ScannerBuilder::new().path(path).flat_results().finish();
+//struct NestedResultsScanner;
+//struct FlatResultsScanner;
+
+pub struct ScannerBuilder {
+    path: PathBuf,
+    result_format: ResultFormat,
+    max_threads: usize,
+    subscribers: Vec<Sender<Vec<String>>>,
+}
+
+impl ScannerBuilder {
+
+    pub fn new() -> ScannerBuilder {
+        ScannerBuilder { path: PathBuf::new(), result_format: ResultFormat::Flat, max_threads: 10, subscribers: vec![] }
+    }
+
+    pub fn start_from_path(mut self, path: &str) -> Self {
+        self.path = PathBuf::from(path);
+        self
+    }
+
+    pub fn max_threads(mut self, thread_limit: usize) -> Self {
+        self.max_threads = thread_limit;
+        self
+    }
+
+    //pub fn nest_results(&self) -> Self {
+    //}
+
+    pub fn flatten_results(mut self) -> Self {
+        self.result_format = ResultFormat::Flat;
+        self
+    }
+
+    pub fn update_subscriber(mut self, subscriber: Sender<Vec<String>>) -> Self {
+        self.subscribers.push(subscriber);
+        self
+    }
+
+    pub fn build(&self) -> DirectoryScanner {
+        let mut scanner = DirectoryScanner::new(self.path.clone(), ResultFormat::Flat);
+        scanner.set_concurrency_limit(self.max_threads - 1);
+        for subscriber in self.subscribers.iter() {
+            scanner.add_subscriber(subscriber.clone());
+        }
+        scanner
+    }
+}
+
+//ScannerBuilder::new().start_from_path(path).max_threads(5).nest_results().update_subscriber(subscriber).build();
+//ScannerBuilder::new().start_from_path(path).max_threads(1).flatten_results().build();
 
 pub struct DirectoryScanner {
     root_dir: PathBuf,

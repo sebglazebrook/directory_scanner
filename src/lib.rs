@@ -117,6 +117,7 @@ impl DirectoryScanner {
                                     file_system.extend(&sub_filepaths);
                                 } else {
                                     self.scan_directory_within_thread(path);
+                                    // this doesn't update the return value
                                 }
                             }
                         }
@@ -145,6 +146,7 @@ impl DirectoryScanner {
 
     fn scan_directory(&self, path: PathBuf) -> FileSystem {
         let mut sub_scanner = DirectoryScanner::new(path);
+        sub_scanner.set_concurrency_limit(self.concurrency_limit);
         for subscriber in self.subscribers.iter() {
             sub_scanner.add_subscriber(subscriber.lock().unwrap().clone());
         }

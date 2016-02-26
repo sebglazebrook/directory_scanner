@@ -35,7 +35,6 @@ mod tests {
 
             before_each {
                 scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-9-files-in-sub-dirs/");
-
             }
 
             it "includes the files in the sub dirs" {

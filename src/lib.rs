@@ -44,29 +44,39 @@ impl ScannerBuilder {
 
 #[derive(Debug, Clone)]
 pub struct FileSystem {
-    pub flat: Vec<String>,
+    files: Vec<String>,
+    path: PathBuf,
+    directories: Vec<FileSystem>,
 }
 
 impl FileSystem {
 
-    pub fn new(flat: Vec<String>) -> Self {
-        FileSystem { flat: flat }
+    pub fn new(path: PathBuf) -> Self {
+        FileSystem { files: vec![], path: path, directories: vec![] }
     }
 
     pub fn len(&self) -> usize {
-        self.flat.len()
+        let total = &self.directories.iter()
+                       .fold(self.files.len(), |acc, ref directory| acc + directory.len());
+        *total
     }
 
     pub fn push(&mut self, filepath: String) {
-        self.flat.push(filepath);
+        self.files.push(filepath.clone());
     }
 
     pub fn extend(&mut self, other: &FileSystem) {
-        self.flat.extend(other.flat.clone())
+        // this will make to make sure the other is not higher up the tree then self right?
+        self.directories.push(other.clone());
     }
 
     pub fn flatten(&self) -> Vec<String> {
-        self.flat.clone()
+        let mut result = vec![];
+        result.extend(self.files.clone());
+        for directory in &self.directories {
+            result.extend(directory.flatten());
+        }
+        result
     }
 
 }
@@ -86,7 +96,7 @@ impl DirectoryScanner {
     }
 
     pub fn scan(&mut self) -> FileSystem {
-        let mut file_system = FileSystem::new(vec![]);
+        let mut file_system = FileSystem::new(self.root_dir.clone());
         match fs::read_dir(&self.root_dir) {
             Ok(read_dir) => {
                 for entry in read_dir {

@@ -10,9 +10,6 @@ pub enum ResultFormat {
     Nested,
 }
 
-//struct NestedResultsScanner;
-//struct FlatResultsScanner;
-
 pub struct ScannerBuilder {
     path: PathBuf,
     result_format: ResultFormat,
@@ -35,9 +32,6 @@ impl ScannerBuilder {
         self.max_threads = thread_limit;
         self
     }
-
-    //pub fn nest_results(&self) -> Self {
-    //}
 
     pub fn flatten_results(mut self) -> Self {
         self.result_format = ResultFormat::Flat;

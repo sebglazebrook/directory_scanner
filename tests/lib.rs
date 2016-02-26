@@ -15,7 +15,6 @@ mod tests {
     describe! directory_scanner {
 
         before_each {
-            let mut path = PathBuf::from("./tests/fixtures/dir-with-11-files/");
             let mut scanner_builder = ScannerBuilder::new();
             scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-11-files/");
         }
@@ -23,7 +22,6 @@ mod tests {
         describe! flat_format {
 
             before_each {
-                let result_format = ResultFormat::Flat;
                 scanner_builder = scanner_builder.flatten_results();
             }
 
@@ -43,8 +41,6 @@ mod tests {
             describe! with_sub_directories {
 
                 before_each {
-                    let result_format = ResultFormat::Flat;
-                    path = PathBuf::from("./tests/fixtures/dir-with-9-files-in-sub-dirs/");
                     scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-9-files-in-sub-dirs/");
 
                 }
@@ -60,8 +56,6 @@ mod tests {
 
                     before_each {
                         let (transmitter, receiver) = channel();
-                        let result_format = ResultFormat::Flat;
-                        path = PathBuf::from("./tests/fixtures/dir-with-5-sub-dirs/");
                         scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-5-sub-dirs/");
                         scanner_builder = scanner_builder.update_subscriber(transmitter.clone());
                     }
@@ -84,7 +78,6 @@ mod tests {
             describe! concurrency_limit {
 
                 before_each {
-                    let mut path = PathBuf::from("./tests/fixtures/dir-with-10-sub-dirs/");
                     scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-10-sub-dirs/");
                 }
 
@@ -108,24 +101,5 @@ mod tests {
                 }
             }
         }
-
-        //describe! nested_format {
-
-        //before_each {
-        //let result_format = ResultFormat::Flat;
-        //let mut directory_scanner = DirectoryScanner::new(result_format);
-        //let results = directory_scanner.scan(path);
-        //}
-
-        //it "returns finds all the files" {
-        //assert_eq!(len(results), 11);
-        //}
-
-        //it "returns the results as a list of strings" {
-        //assert_eq!(results[0], "first-file");
-        //assert_eq!(results[-1], "last-file");
-        //}
-        //}
-
     }
 }

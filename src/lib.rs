@@ -125,7 +125,7 @@ impl DirectoryScanner {
                     }
                 }
             }
-            Err(_) => {} // this should never happen what do we do just in case?
+            Err(_) => { } // this should never happen what do we do just in case?
         }
         for subscriber in self.subscribers.iter() {
             subscriber.lock().unwrap().send(file_system.clone()).unwrap();
@@ -147,6 +147,7 @@ impl DirectoryScanner {
     fn scan_directory(&self, path: PathBuf) -> FileSystem {
         let mut sub_scanner = DirectoryScanner::new(path);
         sub_scanner.set_concurrency_limit(self.concurrency_limit);
+        sub_scanner.current_concurrency = self.current_concurrency.clone();
         for subscriber in self.subscribers.iter() {
             sub_scanner.add_subscriber(subscriber.lock().unwrap().clone());
         }

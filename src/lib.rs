@@ -42,6 +42,22 @@ impl ScannerBuilder {
     }
 }
 
+pub struct FileSystem {
+    pub flat: Vec<String>,
+}
+
+impl FileSystem {
+
+    pub fn new(flat: Vec<String>) -> Self {
+        FileSystem { flat: flat }
+    }
+
+    pub fn len(&self) -> usize {
+        self.flat.len()
+    }
+
+}
+
 pub struct DirectoryScanner {
     root_dir: PathBuf,
     subscribers: Vec<Arc<Mutex<Sender<Vec<String>>>>>,
@@ -56,7 +72,7 @@ impl DirectoryScanner {
         DirectoryScanner { root_dir: root_dir, subscribers: vec![], max_concurrency_reached: 0, concurrency_limit: 9, current_concurrency: Arc::new(AtomicUsize::new(0)) }
     }
 
-    pub fn scan(&mut self) -> Vec<String> {
+    pub fn scan(&mut self) -> FileSystem {
         let mut filepaths = vec![];
         match fs::read_dir(&self.root_dir) {
             Ok(read_dir) => {
@@ -70,7 +86,7 @@ impl DirectoryScanner {
                                 let path = PathBuf::from(entry.path().to_str().unwrap().to_string());
                                 if self.concurrency_limit_reached() {
                                     let sub_filepaths = self.scan_directory(path);
-                                    filepaths.extend(sub_filepaths.clone());
+                                    filepaths.extend(sub_filepaths.flat.clone());
                                 } else {
                                     self.scan_directory_within_thread(path);
                                     // this means it doesn't return anything
@@ -88,7 +104,7 @@ impl DirectoryScanner {
         for subscriber in self.subscribers.iter() {
             subscriber.lock().unwrap().send(filepaths.clone()).unwrap();
         }
-        filepaths
+        FileSystem::new(filepaths)
     }
 
     pub fn add_subscriber(&mut self, subscriber: Sender<Vec<String>>) {
@@ -101,7 +117,7 @@ impl DirectoryScanner {
 
     //------------- private methods -------------//
 
-    fn scan_directory(&self, path: PathBuf) -> Vec<String> {
+    fn scan_directory(&self, path: PathBuf) -> FileSystem {
         let mut sub_scanner = DirectoryScanner::new(path);
         for subscriber in self.subscribers.iter() {
             sub_scanner.add_subscriber(subscriber.lock().unwrap().clone());

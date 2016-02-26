@@ -42,9 +42,6 @@ impl ScannerBuilder {
     }
 }
 
-//ScannerBuilder::new().start_from_path(path).max_threads(5).nest_results().update_subscriber(subscriber).build();
-//ScannerBuilder::new().start_from_path(path).max_threads(1).flatten_results().build();
-
 pub struct DirectoryScanner {
     root_dir: PathBuf,
     subscribers: Vec<Arc<Mutex<Sender<Vec<String>>>>>,

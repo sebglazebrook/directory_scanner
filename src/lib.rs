@@ -72,7 +72,12 @@ impl FileSystem {
 
     pub fn flatten(&self) -> Vec<String> {
         let mut result = vec![];
-        result.extend(self.files.clone());
+        let mut flattened_files = vec![];
+        for file in &self.files {
+            let pathbuf = self.path.clone().join(PathBuf::from(file).file_name().unwrap());
+            flattened_files.push(pathbuf.to_str().unwrap().to_string());
+        }
+        result.extend(flattened_files.clone());
         for directory in &self.directories {
             result.extend(directory.flatten());
         }
@@ -104,7 +109,7 @@ impl DirectoryScanner {
                         Ok(entry) => {
                             let filetype = entry.file_type().unwrap();
                             if filetype.is_file() {
-                                file_system.push(entry.path().to_str().unwrap().to_string());
+                                file_system.push(entry.path().file_name().unwrap().to_str().unwrap().to_string());
                             } else if filetype.is_dir() && !filetype.is_symlink() {
                                 let path = PathBuf::from(entry.path().to_str().unwrap().to_string());
                                 if self.concurrency_limit_reached() {

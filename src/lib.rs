@@ -65,6 +65,10 @@ impl FileSystem {
         self.flat.extend(other.flat.clone())
     }
 
+    pub fn flatten(&self) -> Vec<String> {
+        self.flat.clone()
+    }
+
 }
 
 pub struct DirectoryScanner {

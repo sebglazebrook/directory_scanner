@@ -27,8 +27,8 @@ mod tests {
         it "returns the results as a list of strings" {
             let mut scanner = scanner_builder.build();
             let results = scanner.scan();
-            assert_eq!(results.flat[0], "./tests/fixtures/dir-with-11-files/file-01");
-            assert_eq!(results.flat.last().unwrap(), "./tests/fixtures/dir-with-11-files/file-11");
+            assert_eq!(results.flatten()[0], "./tests/fixtures/dir-with-11-files/file-01");
+            assert_eq!(results.flatten().last().unwrap(), "./tests/fixtures/dir-with-11-files/file-11");
         }
 
         describe! with_sub_directories {

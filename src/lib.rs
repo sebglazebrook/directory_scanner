@@ -8,7 +8,7 @@ use std::thread;
 pub struct ScannerBuilder {
     path: PathBuf,
     max_threads: usize,
-    subscribers: Vec<Sender<Vec<String>>>,
+    subscribers: Vec<Sender<FileSystem>>,
 }
 
 impl ScannerBuilder {
@@ -27,7 +27,7 @@ impl ScannerBuilder {
         self
     }
 
-    pub fn update_subscriber(mut self, subscriber: Sender<Vec<String>>) -> Self {
+    pub fn update_subscriber(mut self, subscriber: Sender<FileSystem>) -> Self {
         self.subscribers.push(subscriber);
         self
     }
@@ -42,6 +42,7 @@ impl ScannerBuilder {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct FileSystem {
     pub flat: Vec<String>,
 }
@@ -56,11 +57,19 @@ impl FileSystem {
         self.flat.len()
     }
 
+    pub fn push(&mut self, filepath: String) {
+        self.flat.push(filepath);
+    }
+
+    pub fn extend(&mut self, other: &FileSystem) {
+        self.flat.extend(other.flat.clone())
+    }
+
 }
 
 pub struct DirectoryScanner {
     root_dir: PathBuf,
-    subscribers: Vec<Arc<Mutex<Sender<Vec<String>>>>>,
+    subscribers: Vec<Arc<Mutex<Sender<FileSystem>>>>,
     concurrency_limit: usize,
     pub max_concurrency_reached: usize,
     pub current_concurrency: Arc<AtomicUsize>
@@ -73,7 +82,7 @@ impl DirectoryScanner {
     }
 
     pub fn scan(&mut self) -> FileSystem {
-        let mut filepaths = vec![];
+        let mut file_system = FileSystem::new(vec![]);
         match fs::read_dir(&self.root_dir) {
             Ok(read_dir) => {
                 for entry in read_dir {
@@ -81,17 +90,14 @@ impl DirectoryScanner {
                         Ok(entry) => {
                             let filetype = entry.file_type().unwrap();
                             if filetype.is_file() {
-                                filepaths.push(entry.path().to_str().unwrap().to_string());
+                                file_system.push(entry.path().to_str().unwrap().to_string());
                             } else if filetype.is_dir() && !filetype.is_symlink() {
                                 let path = PathBuf::from(entry.path().to_str().unwrap().to_string());
                                 if self.concurrency_limit_reached() {
                                     let sub_filepaths = self.scan_directory(path);
-                                    filepaths.extend(sub_filepaths.flat.clone());
+                                    file_system.extend(&sub_filepaths);
                                 } else {
                                     self.scan_directory_within_thread(path);
-                                    // this means it doesn't return anything
-
-                                    //filepaths.extend(sub_filepaths.clone());
                                 }
                             }
                         }
@@ -102,12 +108,13 @@ impl DirectoryScanner {
             Err(_) => {} // this should never happen what do we do just in case?
         }
         for subscriber in self.subscribers.iter() {
-            subscriber.lock().unwrap().send(filepaths.clone()).unwrap();
+            subscriber.lock().unwrap().send(file_system.clone()).unwrap();
         }
-        FileSystem::new(filepaths)
+
+        file_system
     }
 
-    pub fn add_subscriber(&mut self, subscriber: Sender<Vec<String>>) {
+    pub fn add_subscriber(&mut self, subscriber: Sender<FileSystem>) {
         self.subscribers.push(Arc::new(Mutex::new(subscriber)));
     }
 

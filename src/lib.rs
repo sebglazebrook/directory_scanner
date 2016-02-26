@@ -5,14 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 
-pub enum ResultFormat {
-    Flat,
-    Nested,
-}
-
 pub struct ScannerBuilder {
     path: PathBuf,
-    result_format: ResultFormat,
     max_threads: usize,
     subscribers: Vec<Sender<Vec<String>>>,
 }
@@ -20,7 +14,7 @@ pub struct ScannerBuilder {
 impl ScannerBuilder {
 
     pub fn new() -> ScannerBuilder {
-        ScannerBuilder { path: PathBuf::new(), result_format: ResultFormat::Flat, max_threads: 10, subscribers: vec![] }
+        ScannerBuilder { path: PathBuf::new(), max_threads: 10, subscribers: vec![] }
     }
 
     pub fn start_from_path(mut self, path: &str) -> Self {
@@ -33,18 +27,13 @@ impl ScannerBuilder {
         self
     }
 
-    pub fn flatten_results(mut self) -> Self {
-        self.result_format = ResultFormat::Flat;
-        self
-    }
-
     pub fn update_subscriber(mut self, subscriber: Sender<Vec<String>>) -> Self {
         self.subscribers.push(subscriber);
         self
     }
 
     pub fn build(&self) -> DirectoryScanner {
-        let mut scanner = DirectoryScanner::new(self.path.clone(), ResultFormat::Flat);
+        let mut scanner = DirectoryScanner::new(self.path.clone());
         scanner.set_concurrency_limit(self.max_threads - 1);
         for subscriber in self.subscribers.iter() {
             scanner.add_subscriber(subscriber.clone());
@@ -66,7 +55,7 @@ pub struct DirectoryScanner {
 
 impl DirectoryScanner {
 
-    pub fn new(root_dir: PathBuf, result_format: ResultFormat) -> DirectoryScanner {
+    pub fn new(root_dir: PathBuf) -> DirectoryScanner {
         DirectoryScanner { root_dir: root_dir, subscribers: vec![], max_concurrency_reached: 0, concurrency_limit: 9, current_concurrency: Arc::new(AtomicUsize::new(0)) }
     }
 
@@ -116,7 +105,7 @@ impl DirectoryScanner {
     //------------- private methods -------------//
 
     fn scan_directory(&self, path: PathBuf) -> Vec<String> {
-        let mut sub_scanner = DirectoryScanner::new(path, ResultFormat::Flat);
+        let mut sub_scanner = DirectoryScanner::new(path);
         for subscriber in self.subscribers.iter() {
             sub_scanner.add_subscriber(subscriber.lock().unwrap().clone());
         }
@@ -132,7 +121,7 @@ impl DirectoryScanner {
         let local_current_concurrency = self.current_concurrency.clone();
         let local_subscribers = self.subscribers.clone();
         thread::spawn(move||{
-            let mut scanner = DirectoryScanner::new(local_path, ResultFormat::Flat);
+            let mut scanner = DirectoryScanner::new(local_path);
             scanner.current_concurrency = local_current_concurrency.clone();
             for subscriber in local_subscribers.iter() {
                 scanner.add_subscriber(subscriber.lock().unwrap().clone());

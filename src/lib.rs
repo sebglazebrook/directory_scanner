@@ -8,7 +8,7 @@ use std::thread;
 pub struct ScannerBuilder {
     path: PathBuf,
     max_threads: usize,
-    subscribers: Vec<Sender<FileSystem>>,
+    subscribers: Vec<Sender<Directory>>,
 }
 
 impl ScannerBuilder {
@@ -27,7 +27,7 @@ impl ScannerBuilder {
         self
     }
 
-    pub fn update_subscriber(mut self, subscriber: Sender<FileSystem>) -> Self {
+    pub fn update_subscriber(mut self, subscriber: Sender<Directory>) -> Self {
         self.subscribers.push(subscriber);
         self
     }
@@ -43,16 +43,16 @@ impl ScannerBuilder {
 }
 
 #[derive(Debug, Clone)]
-pub struct FileSystem {
+pub struct Directory {
     files: Vec<String>,
     path: PathBuf,
-    directories: Vec<FileSystem>,
+    directories: Vec<Directory>,
 }
 
-impl FileSystem {
+impl Directory {
 
     pub fn new(path: PathBuf) -> Self {
-        FileSystem { files: vec![], path: path, directories: vec![] }
+        Directory { files: vec![], path: path, directories: vec![] }
     }
 
     pub fn len(&self) -> usize {
@@ -65,7 +65,7 @@ impl FileSystem {
         self.files.push(filepath.clone());
     }
 
-    pub fn extend(&mut self, other: &FileSystem) {
+    pub fn extend(&mut self, other: &Directory) {
         // this will make to make sure the other is not higher up the tree then self right?
         self.directories.push(other.clone());
     }
@@ -88,7 +88,7 @@ impl FileSystem {
 
 pub struct DirectoryScanner {
     root_dir: PathBuf,
-    subscribers: Vec<Arc<Mutex<Sender<FileSystem>>>>,
+    subscribers: Vec<Arc<Mutex<Sender<Directory>>>>,
     concurrency_limit: usize,
     pub max_concurrency_reached: usize,
     pub current_concurrency: Arc<AtomicUsize>
@@ -100,8 +100,8 @@ impl DirectoryScanner {
         DirectoryScanner { root_dir: root_dir, subscribers: vec![], max_concurrency_reached: 0, concurrency_limit: 9, current_concurrency: Arc::new(AtomicUsize::new(0)) }
     }
 
-    pub fn scan(&mut self) -> FileSystem {
-        let mut file_system = FileSystem::new(self.root_dir.clone());
+    pub fn scan(&mut self) -> Directory {
+        let mut file_system = Directory::new(self.root_dir.clone());
         match fs::read_dir(&self.root_dir) {
             Ok(read_dir) => {
                 for entry in read_dir {
@@ -134,7 +134,7 @@ impl DirectoryScanner {
         file_system
     }
 
-    pub fn add_subscriber(&mut self, subscriber: Sender<FileSystem>) {
+    pub fn add_subscriber(&mut self, subscriber: Sender<Directory>) {
         self.subscribers.push(Arc::new(Mutex::new(subscriber)));
     }
 
@@ -144,7 +144,7 @@ impl DirectoryScanner {
 
     //------------- private methods -------------//
 
-    fn scan_directory(&self, path: PathBuf) -> FileSystem {
+    fn scan_directory(&self, path: PathBuf) -> Directory {
         let mut sub_scanner = DirectoryScanner::new(path);
         sub_scanner.set_concurrency_limit(self.concurrency_limit);
         sub_scanner.current_concurrency = self.current_concurrency.clone();

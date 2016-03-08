@@ -46,7 +46,7 @@ impl ScannerBuilder {
 pub struct Directory {
     pub path: PathBuf,
     pub files: Vec<File>,
-    sub_directories: Vec<Directory>,
+    pub sub_directories: Vec<Directory>,
 }
 
 impl Directory {

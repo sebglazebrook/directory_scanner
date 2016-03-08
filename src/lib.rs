@@ -44,7 +44,7 @@ impl ScannerBuilder {
 
 #[derive(Debug, Clone)]
 pub struct Directory {
-    files: Vec<String>,
+    files: Vec<File>,
     path: PathBuf,
     sub_directories: Vec<Directory>,
 }
@@ -62,7 +62,7 @@ impl Directory {
     }
 
     pub fn push(&mut self, filepath: String) {
-        self.files.push(filepath.clone());
+        self.files.push(File::new(filepath.clone(), self.path.clone()));
     }
 
     pub fn extend(&mut self, other: &Directory) {
@@ -74,14 +74,40 @@ impl Directory {
         let mut result = vec![];
         let mut flattened_files = vec![];
         for file in &self.files {
-            let pathbuf = self.path.clone().join(PathBuf::from(file).file_name().unwrap());
-            flattened_files.push(pathbuf.to_str().unwrap().to_string());
+            flattened_files.push(file.as_string());
         }
         result.extend(flattened_files.clone());
         for directory in &self.sub_directories {
             result.extend(directory.flatten());
         }
         result
+    }
+
+}
+
+
+#[derive(Debug, Clone)]
+pub struct File {
+    basename: String,
+    dirname: PathBuf,
+}
+
+impl File {
+
+    pub fn new(basename: String, dirname: PathBuf) -> Self {
+        File { basename: basename, dirname: dirname }
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.dirname.join(self.basename.clone())
+    }
+
+    pub fn file_name(&self) -> PathBuf {
+        PathBuf::from(self.basename.clone())
+    }
+
+    pub fn as_string(&self) -> String {
+        self.path().to_str().unwrap().to_string()
     }
 
 }

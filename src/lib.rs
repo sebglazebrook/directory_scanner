@@ -46,17 +46,17 @@ impl ScannerBuilder {
 pub struct Directory {
     files: Vec<String>,
     path: PathBuf,
-    directories: Vec<Directory>,
+    sub_directories: Vec<Directory>,
 }
 
 impl Directory {
 
     pub fn new(path: PathBuf) -> Self {
-        Directory { files: vec![], path: path, directories: vec![] }
+        Directory { files: vec![], path: path, sub_directories: vec![] }
     }
 
     pub fn len(&self) -> usize {
-        let total = &self.directories.iter()
+        let total = &self.sub_directories.iter()
                        .fold(self.files.len(), |acc, ref directory| acc + directory.len());
         *total
     }
@@ -67,7 +67,7 @@ impl Directory {
 
     pub fn extend(&mut self, other: &Directory) {
         // this will make to make sure the other is not higher up the tree then self right?
-        self.directories.push(other.clone());
+        self.sub_directories.push(other.clone());
     }
 
     pub fn flatten(&self) -> Vec<String> {
@@ -78,7 +78,7 @@ impl Directory {
             flattened_files.push(pathbuf.to_str().unwrap().to_string());
         }
         result.extend(flattened_files.clone());
-        for directory in &self.directories {
+        for directory in &self.sub_directories {
             result.extend(directory.flatten());
         }
         result

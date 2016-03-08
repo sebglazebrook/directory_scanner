@@ -83,6 +83,11 @@ impl Directory {
         result
     }
 
+    // TODO can this returns borrows instead?
+    pub fn contents(&self) -> Vec<String> {
+        self.flatten()
+    }
+
 }
 
 

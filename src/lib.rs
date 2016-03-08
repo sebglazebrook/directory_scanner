@@ -66,7 +66,7 @@ impl Directory {
     }
 
     pub fn extend(&mut self, other: &Directory) {
-        // this will make to make sure the other is not higher up the tree then self right?
+        // TODO this will make to make sure the other is not higher up the tree then self right?
         self.sub_directories.push(other.clone());
     }
 

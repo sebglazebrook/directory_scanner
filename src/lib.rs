@@ -8,7 +8,7 @@ use std::thread;
 pub struct ScannerBuilder {
     path: PathBuf,
     max_threads: usize,
-    subscribers: Vec<Sender<Directory>>,
+    subscribers: Vec<Arc<Mutex<Sender<Directory>>>>,
 }
 
 impl ScannerBuilder {
@@ -27,7 +27,7 @@ impl ScannerBuilder {
         self
     }
 
-    pub fn update_subscriber(mut self, subscriber: Sender<Directory>) -> Self {
+    pub fn update_subscriber(mut self, subscriber: Arc<Mutex<Sender<Directory>>>) -> Self {
         self.subscribers.push(subscriber);
         self
     }
@@ -165,8 +165,8 @@ impl DirectoryScanner {
         file_system
     }
 
-    pub fn add_subscriber(&mut self, subscriber: Sender<Directory>) {
-        self.subscribers.push(Arc::new(Mutex::new(subscriber)));
+    pub fn add_subscriber(&mut self, subscriber: Arc<Mutex<Sender<Directory>>>) {
+        self.subscribers.push(subscriber);
     }
 
     pub fn set_concurrency_limit(&mut self, limit: usize) {
@@ -180,7 +180,7 @@ impl DirectoryScanner {
         sub_scanner.set_concurrency_limit(self.concurrency_limit);
         sub_scanner.current_concurrency = self.current_concurrency.clone();
         for subscriber in self.subscribers.iter() {
-            sub_scanner.add_subscriber(subscriber.lock().unwrap().clone());
+            sub_scanner.add_subscriber(subscriber.clone());
         }
         sub_scanner.scan()
     }
@@ -197,7 +197,7 @@ impl DirectoryScanner {
             let mut scanner = DirectoryScanner::new(local_path);
             scanner.current_concurrency = local_current_concurrency.clone();
             for subscriber in local_subscribers.iter() {
-                scanner.add_subscriber(subscriber.lock().unwrap().clone());
+                scanner.add_subscriber(subscriber.clone());
             }
             scanner.scan();
             local_current_concurrency.fetch_sub(1, Ordering::Relaxed);

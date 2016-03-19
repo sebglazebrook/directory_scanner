@@ -49,7 +49,7 @@ mod tests {
                 before_each {
                     let (transmitter, receiver) = channel();
                     scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-5-sub-dirs/");
-                    scanner_builder = scanner_builder.update_subscriber(transmitter.clone());
+                    scanner_builder = scanner_builder.update_subscriber(Arc::new(Mutex::new(transmitter.clone())));
                 }
 
                 it "updates the subscriber after each successful directory scan" {

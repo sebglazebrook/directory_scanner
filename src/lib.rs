@@ -1,9 +1,12 @@
+extern crate time;
+
 use std::path::PathBuf;
 use std::fs;
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
+use time::*;
 
 pub struct ScannerBuilder {
     path: PathBuf,
@@ -33,7 +36,7 @@ impl ScannerBuilder {
     }
 
     pub fn build(&self) -> DirectoryScanner {
-        let mut scanner = DirectoryScanner::new(self.path.clone());
+        let mut scanner = DirectoryScanner::new(self.path.clone(), Arc::new(AtomicUsize::new(0)));
         scanner.set_concurrency_limit(self.max_threads - 1);
         for subscriber in self.subscribers.iter() {
             scanner.add_subscriber(subscriber.clone());
@@ -124,12 +127,13 @@ pub struct DirectoryScanner {
     pub max_concurrency_reached: usize,
     pub current_concurrency: Arc<AtomicUsize>,
     pub running_scanners: Arc<AtomicUsize>,
+    last_event: Arc<AtomicUsize>,
 
 }
 
 impl DirectoryScanner {
 
-    pub fn new(root_dir: PathBuf) -> DirectoryScanner {
+    pub fn new(root_dir: PathBuf, last_event: Arc<AtomicUsize>) -> DirectoryScanner {
         DirectoryScanner {
             root_dir: root_dir,
             subscribers: vec![],
@@ -137,10 +141,12 @@ impl DirectoryScanner {
             concurrency_limit: 9,
             current_concurrency: Arc::new(AtomicUsize::new(0)),
             running_scanners: Arc::new(AtomicUsize::new(0)),
+            last_event: last_event,
         }
     }
 
     pub fn scan(&mut self) -> Directory {
+        self.last_event.store(time::now().to_timespec().sec as usize, Ordering::Relaxed);
         self.running_scanners.fetch_add(1, Ordering::Relaxed);
         let mut file_system = Directory::new(self.root_dir.clone());
         match fs::read_dir(&self.root_dir) {
@@ -173,6 +179,7 @@ impl DirectoryScanner {
         }
 
         self.running_scanners.fetch_sub(1, Ordering::Relaxed);
+        self.last_event.store(time::now().to_timespec().sec as usize, Ordering::Relaxed);
         file_system
     }
 
@@ -186,12 +193,14 @@ impl DirectoryScanner {
 
     pub fn complete(&self) -> bool {
         self.running_scanners.load(Ordering::Relaxed) == 0
+            && self.current_concurrency.load(Ordering::Relaxed) == 0
+            && ((time::now().to_timespec().sec as usize) - self.last_event.load(Ordering::Relaxed) > 1)
     }
 
     //------------- private methods -------------//
 
     fn scan_directory(&self, path: PathBuf) -> Directory {
-        let mut sub_scanner = DirectoryScanner::new(path);
+        let mut sub_scanner = DirectoryScanner::new(path, self.last_event.clone());
         sub_scanner.set_concurrency_limit(self.concurrency_limit);
         sub_scanner.current_concurrency = self.current_concurrency.clone();
         for subscriber in self.subscribers.iter() {
@@ -209,8 +218,9 @@ impl DirectoryScanner {
         let local_current_concurrency = self.current_concurrency.clone();
         let local_subscribers = self.subscribers.clone();
         let running_scanners = self.running_scanners.clone();
+        let last_event = self.last_event.clone();
         thread::spawn(move||{
-            let mut scanner = DirectoryScanner::new(local_path);
+            let mut scanner = DirectoryScanner::new(local_path, last_event);
             scanner.current_concurrency = local_current_concurrency;
             for subscriber in local_subscribers.iter() {
                 scanner.add_subscriber(subscriber.clone());

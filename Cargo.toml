@@ -6,6 +6,9 @@ authors = ["Seb Glazebrook <sebastian.glazebrook@redbubble.com>"]
 [lib]
 name = "directory_scanner"
 path = "src/lib.rs"
+
+[dependencies]
+time = "*"
  
 
 [dev-dependencies.stainless]

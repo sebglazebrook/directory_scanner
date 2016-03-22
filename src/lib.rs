@@ -122,16 +122,26 @@ pub struct DirectoryScanner {
     subscribers: Vec<Arc<Mutex<Sender<Directory>>>>,
     concurrency_limit: usize,
     pub max_concurrency_reached: usize,
-    pub current_concurrency: Arc<AtomicUsize>
+    pub current_concurrency: Arc<AtomicUsize>,
+    pub running_scanners: Arc<AtomicUsize>,
+
 }
 
 impl DirectoryScanner {
 
     pub fn new(root_dir: PathBuf) -> DirectoryScanner {
-        DirectoryScanner { root_dir: root_dir, subscribers: vec![], max_concurrency_reached: 0, concurrency_limit: 9, current_concurrency: Arc::new(AtomicUsize::new(0)) }
+        DirectoryScanner {
+            root_dir: root_dir,
+            subscribers: vec![],
+            max_concurrency_reached: 0,
+            concurrency_limit: 9,
+            current_concurrency: Arc::new(AtomicUsize::new(0)),
+            running_scanners: Arc::new(AtomicUsize::new(0)),
+        }
     }
 
     pub fn scan(&mut self) -> Directory {
+        self.current_concurrency.fetch_add(1, Ordering::Relaxed);
         let mut file_system = Directory::new(self.root_dir.clone());
         match fs::read_dir(&self.root_dir) {
             Ok(read_dir) => {
@@ -162,6 +172,7 @@ impl DirectoryScanner {
             subscriber.lock().unwrap().send(file_system.clone()).unwrap();
         }
 
+        self.current_concurrency.fetch_sub(1, Ordering::Relaxed);
         file_system
     }
 
@@ -173,9 +184,8 @@ impl DirectoryScanner {
         self.concurrency_limit = limit;
     }
 
-    // only used when doing multi threading??
     pub fn complete(&self) -> bool {
-        self.current_concurrency.load(Ordering::Relaxed) == 0
+        self.running_scanners.load(Ordering::Relaxed) == 0
     }
 
     //------------- private methods -------------//
@@ -193,17 +203,19 @@ impl DirectoryScanner {
     fn scan_directory_within_thread(&mut self, path: PathBuf) {
         self.current_concurrency.fetch_add(1, Ordering::Relaxed);
         if self.current_concurrency.load(Ordering::Relaxed) > self.max_concurrency_reached {
-          self.max_concurrency_reached =   self.current_concurrency.load(Ordering::Relaxed);
+          self.max_concurrency_reached = self.current_concurrency.load(Ordering::Relaxed);
         }
         let local_path = path.clone();
         let local_current_concurrency = self.current_concurrency.clone();
         let local_subscribers = self.subscribers.clone();
+        let running_scanners = self.running_scanners.clone();
         thread::spawn(move||{
             let mut scanner = DirectoryScanner::new(local_path);
             scanner.current_concurrency = local_current_concurrency.clone();
             for subscriber in local_subscribers.iter() {
                 scanner.add_subscriber(subscriber.clone());
             }
+            scanner.running_scanners = running_scanners.clone();
             scanner.scan();
             local_current_concurrency.fetch_sub(1, Ordering::Relaxed);
         });

@@ -174,7 +174,7 @@ impl DirectoryScanner {
     }
 
     // only used when doing multi threading??
-    pub fn scanner_complete(&self) -> bool {
+    pub fn complete(&self) -> bool {
         self.current_concurrency.load(Ordering::Relaxed) == 0
     }
 

@@ -173,6 +173,11 @@ impl DirectoryScanner {
         self.concurrency_limit = limit;
     }
 
+    // only used when doing multi threading??
+    pub fn scanner_complete(&self) -> bool {
+        self.current_concurrency.load(Ordering::Relaxed) == 0
+    }
+
     //------------- private methods -------------//
 
     fn scan_directory(&self, path: PathBuf) -> Directory {

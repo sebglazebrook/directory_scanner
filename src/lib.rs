@@ -142,7 +142,6 @@ impl DirectoryScanner {
 
     pub fn scan(&mut self) -> Directory {
         self.running_scanners.fetch_add(1, Ordering::Relaxed);
-        self.current_concurrency.fetch_add(1, Ordering::Relaxed);
         let mut file_system = Directory::new(self.root_dir.clone());
         match fs::read_dir(&self.root_dir) {
             Ok(read_dir) => {
@@ -173,7 +172,6 @@ impl DirectoryScanner {
             subscriber.lock().unwrap().send(file_system.clone()).unwrap();
         }
 
-        self.current_concurrency.fetch_sub(1, Ordering::Relaxed);
         self.running_scanners.fetch_sub(1, Ordering::Relaxed);
         file_system
     }
@@ -213,13 +211,13 @@ impl DirectoryScanner {
         let running_scanners = self.running_scanners.clone();
         thread::spawn(move||{
             let mut scanner = DirectoryScanner::new(local_path);
-            scanner.current_concurrency = local_current_concurrency.clone();
+            scanner.current_concurrency = local_current_concurrency;
             for subscriber in local_subscribers.iter() {
                 scanner.add_subscriber(subscriber.clone());
             }
             scanner.running_scanners = running_scanners;
             scanner.scan();
-            local_current_concurrency.fetch_sub(1, Ordering::Relaxed);
+            scanner.current_concurrency.fetch_sub(1, Ordering::Relaxed);
         });
     }
 

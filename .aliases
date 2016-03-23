@@ -1,0 +1,2 @@
+run_tests:
+  command: docker-compose run rust cargo test

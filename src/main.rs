@@ -1,12 +1,10 @@
-#![feature(arc_counts)]
 extern crate directory_scanner;
 
 use directory_scanner::ScannerBuilder;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use std::thread;
 
+#[allow(unused_variables)]
 fn main() {
     let (transmitter, receiver) = channel();
     let transmitter = Arc::new(Mutex::new(transmitter));

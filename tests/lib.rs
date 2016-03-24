@@ -27,14 +27,14 @@ mod tests {
         it "returns the results as a list of strings" {
             let mut scanner = scanner_builder.build();
             let results = scanner.scan();
-            assert_eq!(results.flatten()[0], "./tests/fixtures/dir-with-11-files/file-01");
-            assert_eq!(results.flatten().last().unwrap(), "./tests/fixtures/dir-with-11-files/file-11");
+            assert_eq!(results.flatten()[0], "tests/fixtures/dir-with-11-files/file-01");
+            assert_eq!(results.flatten().last().unwrap(), "tests/fixtures/dir-with-11-files/file-11");
         }
 
         describe! with_sub_directories {
 
             before_each {
-                scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-9-files-in-sub-dirs/");
+                scanner_builder = scanner_builder.start_from_path("tests/fixtures/dir-with-9-files-in-sub-dirs/");
             }
 
             it "includes the files in the sub dirs" {
@@ -48,7 +48,7 @@ mod tests {
 
                 before_each {
                     let (transmitter, receiver) = channel();
-                    scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-5-sub-dirs/");
+                    scanner_builder = scanner_builder.start_from_path("tests/fixtures/dir-with-5-sub-dirs/");
                     scanner_builder = scanner_builder.update_subscriber(Arc::new(Mutex::new(transmitter.clone())));
                 }
 
@@ -70,7 +70,7 @@ mod tests {
         describe! concurrency_limit {
 
             before_each {
-                scanner_builder = scanner_builder.start_from_path("./tests/fixtures/dir-with-10-sub-dirs/");
+                scanner_builder = scanner_builder.start_from_path("tests/fixtures/dir-with-10-sub-dirs/");
             }
 
             it "defaults to 9" {

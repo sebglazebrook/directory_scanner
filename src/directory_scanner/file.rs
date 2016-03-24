@@ -9,7 +9,13 @@ pub struct File {
 impl File {
 
     pub fn new(basename: String, dirname: PathBuf) -> Self {
-        File { basename: basename, dirname: dirname }
+        let new_dir;
+        if dirname.starts_with("./") {
+            new_dir = unshift(dirname);
+        } else {
+            new_dir = dirname;
+        }
+        File { basename: basename, dirname: new_dir }
     }
 
     pub fn path(&self) -> PathBuf {
@@ -24,4 +30,15 @@ impl File {
         self.path().to_str().unwrap().to_string()
     }
 
+}
+
+pub fn unshift(path: PathBuf) -> PathBuf {
+    let string = path.clone().into_os_string().into_string().unwrap();
+    match string.find("/") { // only working on unix type systems now
+        None => { path.clone() },
+        Some(index) => {
+            let (_, last) =  string.split_at(index + 1);
+            PathBuf::from(last)
+        }
+    }
 }

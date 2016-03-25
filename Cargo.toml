@@ -9,6 +9,7 @@ path = "src/lib.rs"
 
 [dependencies]
 time = "*"
+log = "*"
  
 
 [dev-dependencies.stainless]

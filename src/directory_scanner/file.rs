@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::cmp::Ordering;
 
 #[derive(Debug, Clone)]
 pub struct File {
@@ -28,6 +29,14 @@ impl File {
 
     pub fn as_string(&self) -> String {
         self.path().to_str().unwrap().to_string()
+    }
+
+}
+
+impl PartialEq for File {
+
+    fn eq(&self, other: &Self) -> bool {
+        self.path().cmp(&other.path()) == Ordering::Equal
     }
 
 }

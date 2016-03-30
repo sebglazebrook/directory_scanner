@@ -63,7 +63,8 @@ impl DirectoryScanner {
             Err(_) => { } // this should never happen what do we do just in case?
         }
         for subscriber in self.subscribers.iter() {
-            subscriber.lock().unwrap().send(file_system.clone()).unwrap();
+            // TODO enable this when multithreaded is working again
+            //subscriber.lock().unwrap().send(file_system.clone()).unwrap();
         }
 
         self.running_scanners.fetch_sub(1, Ordering::Relaxed);

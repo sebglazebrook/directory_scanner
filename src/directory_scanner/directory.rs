@@ -56,6 +56,17 @@ impl Directory {
         self.flatten()
     }
 
+    pub fn file_contents(&self) -> Vec<File> {
+        let mut result = vec![];
+        for file in &self.files {
+            result.push(file.clone());
+        }
+        for directory in &self.sub_directories {
+            result.extend(directory.file_contents());
+        }
+        result
+    }
+
 }
 
 impl PartialEq for Directory {

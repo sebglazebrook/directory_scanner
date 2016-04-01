@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use time;
+use gitignore;
 
 use directory_scanner::Directory;
 
@@ -43,9 +44,9 @@ impl DirectoryScanner {
                     match entry {
                         Ok(entry) => {
                             let filetype = entry.file_type().unwrap();
-                            if filetype.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
+                            if filetype.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") && !self.is_ignored_by_git(&entry.path()) {
                                 file_system.push(entry.path().file_name().unwrap().to_str().unwrap().to_string());
-                            } else if filetype.is_dir() && !filetype.is_symlink() && !entry.file_name().to_str().unwrap().starts_with(".") {
+                            } else if filetype.is_dir() && !filetype.is_symlink() && !entry.file_name().to_str().unwrap().starts_with(".") && !self.is_ignored_by_git(&entry.path()) {
                                 let path = PathBuf::from(entry.path().to_str().unwrap().to_string());
                                 if self.concurrency_limit_reached() {
                                     let sub_filepaths = self.scan_directory(path);
@@ -87,6 +88,19 @@ impl DirectoryScanner {
     }
 
     //------------- private methods -------------//
+
+    fn is_ignored_by_git(&self, path: &PathBuf) -> bool {
+        let gitignore_path = self.root_dir.join(".gitignore");
+        if gitignore_path.exists() {
+            let file = gitignore::File::new(&gitignore_path).unwrap();
+            match file.is_excluded(&path) {
+                Ok(result) => { result },
+                Err(_) => { false } // TODO handle and understand this
+            }
+        } else {
+            false
+        }
+    }
 
     fn scan_directory(&self, path: PathBuf) -> Directory {
         let mut sub_scanner = DirectoryScanner::new(path, self.last_event.clone());

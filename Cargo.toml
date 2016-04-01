@@ -10,6 +10,7 @@ path = "src/lib.rs"
 [dependencies]
 time = "*"
 log = "*"
+gitignore = "*"
  
 
 [dev-dependencies.stainless]

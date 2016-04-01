@@ -43,9 +43,9 @@ impl DirectoryScanner {
                     match entry {
                         Ok(entry) => {
                             let filetype = entry.file_type().unwrap();
-                            if filetype.is_file() {
+                            if filetype.is_file() && !entry.file_name().to_str().unwrap().starts_with(".") {
                                 file_system.push(entry.path().file_name().unwrap().to_str().unwrap().to_string());
-                            } else if filetype.is_dir() && !filetype.is_symlink() {
+                            } else if filetype.is_dir() && !filetype.is_symlink() && !entry.file_name().to_str().unwrap().starts_with(".") {
                                 let path = PathBuf::from(entry.path().to_str().unwrap().to_string());
                                 if self.concurrency_limit_reached() {
                                     let sub_filepaths = self.scan_directory(path);

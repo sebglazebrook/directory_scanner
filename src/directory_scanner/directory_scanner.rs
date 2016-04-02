@@ -95,7 +95,10 @@ impl DirectoryScanner {
             let file = gitignore::File::new(&gitignore_path).unwrap();
             match file.is_excluded(&path) {
                 Ok(result) => { result },
-                Err(_) => { false } // TODO handle and understand this
+                Err(error) => {
+                    warn!("There was an error try to check whether to ignore path '{:?}'\nError: {:?}", path, error);
+                    false
+                }
             }
         } else {
             false

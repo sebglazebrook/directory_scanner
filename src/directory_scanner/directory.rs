@@ -6,15 +6,16 @@ use std::sync::{Arc, RwLock};
 #[derive(Debug, Clone)]
 pub struct Directory {
     path: PathBuf,
-    files: Vec<File>,
+    files: Arc<RwLock<Vec<File>>>,
     sub_directories: Arc<RwLock<Vec<Directory>>>,
 }
 
 impl Directory {
 
     pub fn new(path: PathBuf) -> Self {
+        let files = Arc::new(RwLock::new(vec![]));
         let sub_directories = Arc::new(RwLock::new(vec![]));
-        Directory { files: vec![], path: path, sub_directories: sub_directories }
+        Directory { files: files, path: path, sub_directories: sub_directories }
     }
 
     pub fn path(&self) -> PathBuf {
@@ -27,15 +28,15 @@ impl Directory {
 
     pub fn len(&self) -> usize {
         let total = &self.sub_directories.read().unwrap().iter()
-                       .fold(self.files.len(), |acc, ref directory| acc + directory.len());
+                       .fold(self.files.read().unwrap().len(), |acc, ref directory| acc + directory.len());
         *total
     }
 
-    pub fn push(&mut self, filepath: String) {
+    pub fn push(&self, filepath: String) {
         let file = File::new(filepath.clone(), self.path.clone());
-        if !self.files.contains(&file) {
+        if !self.files.read().unwrap().contains(&file) {
             debug!("Adding file {:?} to dir {:?}", filepath, self.path);
-            self.files.push(file);
+            self.files.write().unwrap().push(file);
         }
     }
 
@@ -48,10 +49,10 @@ impl Directory {
     }
 
     pub fn files(&self) -> Vec<File> {
-        self.files.clone()
+        self.files.read().unwrap().clone()
     }
 
-    pub fn extend(&mut self, other: &Directory) {
+    pub fn extend(&self, other: &Directory) {
         // TODO this will make to make sure the other is not higher up the tree then self right?
         if !self.sub_directories.read().unwrap().contains(&other) {
             debug!("Extending dir with {:?}", other.path());
@@ -63,7 +64,7 @@ impl Directory {
     pub fn flatten(&self) -> Vec<String> {
         let mut result = vec![];
         let mut flattened_files = vec![];
-        for file in &self.files {
+        for file in self.each_file() {
             flattened_files.push(file.as_string());
         }
         result.extend(flattened_files.clone());
@@ -79,7 +80,7 @@ impl Directory {
 
     pub fn file_contents(&self) -> Vec<File> {
         let mut result = vec![];
-        for file in &self.files {
+        for file in self.each_file() {
             result.push(file.clone());
         }
         for directory in self.each_sub_directory() {
@@ -125,13 +126,13 @@ impl<'a> Iterator for SubDirectoryIterator<'a> {
 }
 
 pub struct FileIterator<'a> {
-    files: &'a Vec<File>,
+    files: &'a Arc<RwLock<Vec<File>>>,
     index: usize,
 }
 
 impl<'a> FileIterator<'a> {
 
-    pub fn new(files: &'a Vec<File>) -> Self {
+    pub fn new(files: &'a Arc<RwLock<Vec<File>>>) -> Self {
         FileIterator { files: files, index: 0 }
     }
 }
@@ -140,7 +141,7 @@ impl<'a> Iterator for FileIterator<'a> {
      type Item = File;
 
      fn next(&mut self) -> Option<File> {
-         match self.files.get(self.index) {
+         match self.files.read().unwrap().get(self.index) {
              Some(result) => {
                  self.index += 1;
                  Some(result.clone())

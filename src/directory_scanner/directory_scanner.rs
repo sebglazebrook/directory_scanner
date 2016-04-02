@@ -37,7 +37,7 @@ impl DirectoryScanner {
     pub fn scan(&mut self) -> Directory {
         self.last_event.store(time::now().to_timespec().sec as usize, Ordering::Relaxed);
         self.running_scanners.fetch_add(1, Ordering::Relaxed);
-        let mut file_system = Directory::new(self.root_dir.clone());
+        let file_system = Directory::new(self.root_dir.clone());
         match fs::read_dir(&self.root_dir) {
             Ok(read_dir) => {
                 for entry in read_dir {

@@ -6,11 +6,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use time;
 use gitignore;
+use std::env::current_dir;
 
 use directory_scanner::Directory;
 
 pub struct DirectoryScanner {
-    root_dir: PathBuf,
+    absolute_base: PathBuf,
+    relative_base: PathBuf,
     subscribers: Vec<Arc<Mutex<Sender<Directory>>>>,
     concurrency_limit: usize,
     pub max_concurrency_reached: usize,
@@ -23,8 +25,10 @@ pub struct DirectoryScanner {
 impl DirectoryScanner {
 
     pub fn new(root_dir: PathBuf, last_event: Arc<AtomicUsize>) -> DirectoryScanner {
+        let (absolute_base, relative_base) = breakdown_dir_parts(root_dir);
         DirectoryScanner {
-            root_dir: root_dir,
+            absolute_base: absolute_base,
+            relative_base: relative_base,
             subscribers: vec![],
             max_concurrency_reached: 0,
             concurrency_limit: 9,
@@ -37,8 +41,8 @@ impl DirectoryScanner {
     pub fn scan(&mut self) -> Directory {
         self.last_event.store(time::now().to_timespec().sec as usize, Ordering::Relaxed);
         self.running_scanners.fetch_add(1, Ordering::Relaxed);
-        let file_system = Directory::new(self.root_dir.clone());
-        match fs::read_dir(&self.root_dir) {
+        let file_system = Directory::new(self.relative_base.clone());
+        match fs::read_dir(&self.relative_base) {
             Ok(read_dir) => {
                 for entry in read_dir {
                     match entry {
@@ -90,10 +94,11 @@ impl DirectoryScanner {
     //------------- private methods -------------//
 
     fn is_ignored_by_git(&self, path: &PathBuf) -> bool {
-        let gitignore_path = self.root_dir.join(".gitignore");
+        let gitignore_path = self.absolute_base.join(&path.parent().unwrap().strip_prefix("./").unwrap()).join(".gitignore");
+        let path_to_check = self.absolute_base.join(&path.strip_prefix("./").unwrap());
         if gitignore_path.exists() {
             let file = gitignore::File::new(&gitignore_path).unwrap();
-            match file.is_excluded(&path) {
+            match file.is_excluded(&path_to_check) {
                 Ok(result) => { result },
                 Err(error) => {
                     warn!("There was an error try to check whether to ignore path '{:?}'\nError: {:?}", path, error);
@@ -139,5 +144,13 @@ impl DirectoryScanner {
 
     fn concurrency_limit_reached(&self) -> bool {
         self.current_concurrency.load(Ordering::Relaxed) >= self.concurrency_limit
+    }
+}
+
+fn breakdown_dir_parts(dir: PathBuf) -> (PathBuf, PathBuf) {
+    if dir.is_absolute() {
+        (dir, PathBuf::from("./"))
+    } else {
+        (current_dir().unwrap(), dir)
     }
 }

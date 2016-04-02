@@ -1,18 +1,28 @@
 use std::path::PathBuf;
 use directory_scanner::File;
 use std::cmp::Ordering;
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone)]
 pub struct Directory {
-    pub path: PathBuf,
-    pub files: Vec<File>,
-    pub sub_directories: Vec<Directory>,
+    path: PathBuf,
+    files: Vec<File>,
+    sub_directories: Vec<Directory>,
+    lock: Arc<RwLock<bool>>,
 }
 
 impl Directory {
 
     pub fn new(path: PathBuf) -> Self {
-        Directory { files: vec![], path: path, sub_directories: vec![] }
+        Directory { files: vec![], path: path, sub_directories: vec![], lock: Arc::new(RwLock::new(true)) }
+    }
+
+    pub fn path(&self) -> PathBuf {
+        self.path.clone()
+    }
+
+    pub fn path_string(&self) -> String {
+        self.path.to_str().unwrap().to_string()
     }
 
     pub fn len(&self) -> usize {
@@ -27,6 +37,18 @@ impl Directory {
             debug!("Adding file {:?} to dir {:?}", filepath, self.path);
             self.files.push(file);
         }
+    }
+
+    pub fn each_sub_directory(&self) -> SubDirectoryIterator {
+        SubDirectoryIterator::new(&self.sub_directories)
+    }
+
+    pub fn each_file(&self) -> FileIterator {
+        FileIterator::new(&self.files)
+    }
+
+    pub fn files(&self) -> Vec<File> {
+        self.files.clone()
     }
 
     pub fn extend(&mut self, other: &Directory) {
@@ -45,13 +67,12 @@ impl Directory {
             flattened_files.push(file.as_string());
         }
         result.extend(flattened_files.clone());
-        for directory in &self.sub_directories {
+        for directory in self.each_sub_directory() {
             result.extend(directory.flatten());
         }
         result
     }
 
-    // TODO can this returns borrows instead?
     pub fn contents(&self) -> Vec<String> {
         self.flatten()
     }
@@ -75,4 +96,56 @@ impl PartialEq for Directory {
         self.path.cmp(&other.path) == Ordering::Equal
     }
 
+}
+
+pub struct SubDirectoryIterator<'a> {
+    sub_directories: &'a Vec<Directory>,
+    index: usize,
+}
+
+impl<'a> SubDirectoryIterator<'a> {
+
+    pub fn new(sub_directories: &'a Vec<Directory>) -> Self {
+        SubDirectoryIterator { sub_directories: sub_directories, index: 0 }
+    }
+}
+
+impl<'a> Iterator for SubDirectoryIterator<'a> {
+     type Item = Directory;
+
+     fn next(&mut self) -> Option<Directory> {
+         match self.sub_directories.get(self.index) {
+             Some(result) => {
+                 self.index += 1;
+                 Some(result.clone())
+             },
+             None => None
+         }
+     }
+}
+
+pub struct FileIterator<'a> {
+    files: &'a Vec<File>,
+    index: usize,
+}
+
+impl<'a> FileIterator<'a> {
+
+    pub fn new(files: &'a Vec<File>) -> Self {
+        FileIterator { files: files, index: 0 }
+    }
+}
+
+impl<'a> Iterator for FileIterator<'a> {
+     type Item = File;
+
+     fn next(&mut self) -> Option<File> {
+         match self.files.get(self.index) {
+             Some(result) => {
+                 self.index += 1;
+                 Some(result.clone())
+             },
+             None => None
+         }
+     }
 }

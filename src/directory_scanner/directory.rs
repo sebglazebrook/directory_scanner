@@ -7,14 +7,14 @@ use std::sync::{Arc, RwLock};
 pub struct Directory {
     path: PathBuf,
     files: Vec<File>,
-    sub_directories: Vec<Directory>,
-    lock: Arc<RwLock<bool>>,
+    sub_directories: Arc<RwLock<Vec<Directory>>>,
 }
 
 impl Directory {
 
     pub fn new(path: PathBuf) -> Self {
-        Directory { files: vec![], path: path, sub_directories: vec![], lock: Arc::new(RwLock::new(true)) }
+        let sub_directories = Arc::new(RwLock::new(vec![]));
+        Directory { files: vec![], path: path, sub_directories: sub_directories }
     }
 
     pub fn path(&self) -> PathBuf {
@@ -26,7 +26,7 @@ impl Directory {
     }
 
     pub fn len(&self) -> usize {
-        let total = &self.sub_directories.iter()
+        let total = &self.sub_directories.read().unwrap().iter()
                        .fold(self.files.len(), |acc, ref directory| acc + directory.len());
         *total
     }
@@ -53,9 +53,9 @@ impl Directory {
 
     pub fn extend(&mut self, other: &Directory) {
         // TODO this will make to make sure the other is not higher up the tree then self right?
-        if !self.sub_directories.contains(&other) {
-            debug!("Extending dir with {:?}", other.path);
-            self.sub_directories.push(other.clone());
+        if !self.sub_directories.read().unwrap().contains(&other) {
+            debug!("Extending dir with {:?}", other.path());
+            self.sub_directories.write().unwrap().push(other.clone());
             debug!("Directory size = {}", self.len());
         }
     }
@@ -82,7 +82,7 @@ impl Directory {
         for file in &self.files {
             result.push(file.clone());
         }
-        for directory in &self.sub_directories {
+        for directory in self.each_sub_directory() {
             result.extend(directory.file_contents());
         }
         result
@@ -99,13 +99,13 @@ impl PartialEq for Directory {
 }
 
 pub struct SubDirectoryIterator<'a> {
-    sub_directories: &'a Vec<Directory>,
+    sub_directories: &'a Arc<RwLock<Vec<Directory>>>,
     index: usize,
 }
 
 impl<'a> SubDirectoryIterator<'a> {
 
-    pub fn new(sub_directories: &'a Vec<Directory>) -> Self {
+    pub fn new(sub_directories: &'a Arc<RwLock<Vec<Directory>>>) -> Self {
         SubDirectoryIterator { sub_directories: sub_directories, index: 0 }
     }
 }
@@ -114,7 +114,7 @@ impl<'a> Iterator for SubDirectoryIterator<'a> {
      type Item = Directory;
 
      fn next(&mut self) -> Option<Directory> {
-         match self.sub_directories.get(self.index) {
+         match self.sub_directories.read().unwrap().get(self.index) {
              Some(result) => {
                  self.index += 1;
                  Some(result.clone())

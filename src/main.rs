@@ -18,7 +18,7 @@ fn main() {
     let directory = scanner.scan();
 
 
-    while !scanner.complete() {
+    while !scanner.is_complete() {
     }
     println!("{:?}", directory.len());
 

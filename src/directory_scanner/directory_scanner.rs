@@ -85,7 +85,7 @@ impl DirectoryScanner {
         self.concurrency_limit = limit;
     }
 
-    pub fn complete(&self) -> bool {
+    pub fn is_complete(&self) -> bool {
         self.running_scanners.load(Ordering::Relaxed) == 0
             && self.current_concurrency.load(Ordering::Relaxed) == 0
             && ((time::now().to_timespec().sec as usize) - self.last_event.load(Ordering::Relaxed) > 1)

@@ -75,6 +75,7 @@ pub struct DirectoryScanner {
     pub current_concurrency: Arc<AtomicUsize>, // TODO remove this from being public
     pub running_scanners: Arc<AtomicUsize>, // TODO remove this from being public
     last_event: Arc<AtomicUsize>, // TODO rename this??
+    directory: Option<Directory>,
 
 }
 
@@ -92,13 +93,23 @@ impl DirectoryScanner {
             running_scanners: Arc::new(AtomicUsize::new(0)),
             last_event: last_event,
             event_broker: DirectoryEventBroker::new(),
+            directory: None,
         }
     }
 
     pub fn scan(&mut self) -> Directory {
         self.last_event.store(time::now().to_timespec().sec as usize, Ordering::Relaxed);
         self.running_scanners.fetch_add(1, Ordering::Relaxed);
-        let file_system = Directory::new(self.relative_base.clone());
+        let mut file_system;
+        match self.directory.clone() {
+            Some(dir) => {
+                file_system = Directory::new(self.relative_base.clone());
+                dir.extend(&file_system) },
+            None => {
+                file_system = Directory::new(self.relative_base.clone());
+                self.directory = Some(file_system.clone());
+            }
+        }
         match fs::read_dir(&self.relative_base) {
             Ok(read_dir) => {
                 for entry in read_dir {
@@ -125,18 +136,14 @@ impl DirectoryScanner {
             Err(_) => { } // this should never happen what do we do just in case?
         }
         self.event_broker.send(file_system.clone());
-        for subscriber in self.subscribers.iter() {
-            // TODO enable this when multithreaded is working again
-            //subscriber.lock().unwrap().send(file_system.clone()).unwrap();
-        }
 
         self.running_scanners.fetch_sub(1, Ordering::Relaxed);
         self.last_event.store(time::now().to_timespec().sec as usize, Ordering::Relaxed);
         file_system
     }
 
-    pub fn add_subscriber(&mut self, subscriber: Arc<Mutex<Sender<Directory>>>) {
-        self.subscribers.push(subscriber);
+    pub fn extend_directory(&mut self, directory: Directory) {
+        self.directory = Some(directory);
     }
 
     pub fn set_concurrency_limit(&mut self, limit: usize) {
@@ -176,9 +183,6 @@ impl DirectoryScanner {
         let mut sub_scanner = DirectoryScanner::new(path, self.last_event.clone());
         sub_scanner.set_concurrency_limit(self.concurrency_limit);
         sub_scanner.current_concurrency = self.current_concurrency.clone();
-        for subscriber in self.subscribers.iter() {
-            sub_scanner.add_subscriber(subscriber.clone());
-        }
         sub_scanner.scan()
     }
 
@@ -193,14 +197,16 @@ impl DirectoryScanner {
         let running_scanners = self.running_scanners.clone();
         let last_event = self.last_event.clone();
         let event_broker = self.event_broker.clone();
+        let directory = self.directory.clone();
         thread::spawn(move||{
             let mut scanner = DirectoryScanner::new(local_path, last_event);
             scanner.current_concurrency = local_current_concurrency;
-            for subscriber in local_subscribers.iter() {
-                scanner.add_subscriber(subscriber.clone());
-            }
             scanner.running_scanners = running_scanners;
             scanner.event_broker = event_broker;
+            match directory {
+                Some(dir) => { scanner.extend_directory(dir); },
+                None => {}
+            }
             scanner.scan();
             scanner.current_concurrency.fetch_sub(1, Ordering::Relaxed);
         });

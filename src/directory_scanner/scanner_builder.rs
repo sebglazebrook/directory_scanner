@@ -9,13 +9,12 @@ use super::super::DirectoryScanner;
 pub struct ScannerBuilder {
     path: PathBuf,
     max_threads: usize,
-    subscribers: Vec<Arc<Mutex<Sender<Directory>>>>,
 }
 
 impl ScannerBuilder {
 
     pub fn new() -> ScannerBuilder {
-        ScannerBuilder { path: PathBuf::new(), max_threads: 10, subscribers: vec![] }
+        ScannerBuilder { path: PathBuf::new(), max_threads: 10 }
     }
 
     pub fn start_from_path(mut self, path: &str) -> Self {
@@ -28,17 +27,9 @@ impl ScannerBuilder {
         self
     }
 
-    pub fn update_subscriber(mut self, subscriber: Arc<Mutex<Sender<Directory>>>) -> Self {
-        self.subscribers.push(subscriber);
-        self
-    }
-
     pub fn build(&self) -> DirectoryScanner {
         let mut scanner = DirectoryScanner::new(self.path.clone(), Arc::new(AtomicUsize::new(0)));
         scanner.set_concurrency_limit(self.max_threads - 1);
-        for subscriber in self.subscribers.iter() {
-            scanner.add_subscriber(subscriber.clone());
-        }
         scanner
     }
 }

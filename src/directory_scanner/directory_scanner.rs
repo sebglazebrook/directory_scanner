@@ -1,75 +1,18 @@
 use std::path::PathBuf;
 use std::fs;
-use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex, Condvar};
-use std::sync::atomic::{AtomicUsize, Ordering, AtomicBool};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::thread;
 use time;
 use gitignore;
 use std::env::current_dir;
-use crossbeam::sync::MsQueue;
 
-use directory_scanner::Directory;
-
-#[derive(Clone)]
-pub struct DirectoryEventBroker {
-    events: Arc<MsQueue<Directory>>,
-    receiving_events: Arc<AtomicBool>,
-    mutex: Arc<Mutex<bool>>,
-    condvar: Arc<Condvar>,
-}
-
-impl DirectoryEventBroker {
-
-    pub fn new() -> Self {
-        DirectoryEventBroker {
-            events: Arc::new(MsQueue::new()),
-            receiving_events: Arc::new(AtomicBool::new(true)),
-            condvar: Arc::new(Condvar::new()),
-            mutex: Arc::new(Mutex::new(false)),
-        }
-    }
-
-    pub fn send(&self, filter_event: Directory) {
-        self.events.push(filter_event);
-        self.condvar.notify_one();
-    }
-
-    pub fn close(&self) {
-        self.receiving_events.store(false, Ordering::Relaxed);
-        self.condvar.notify_all();
-    }
-
-    pub fn recv(&self) -> Result<Directory, &str>  {
-        let mut return_event = Err("I dont't know");
-        if !self.receiving_events.load(Ordering::Relaxed) {
-            return return_event;
-        }
-        let mut done = false;
-        while !done {
-            let mutex_guard = self.mutex.lock().unwrap();
-            let _ = self.condvar.wait(mutex_guard).unwrap();
-            if !self.receiving_events.load(Ordering::Relaxed) {
-                done = true;
-                return Err("no longer receiving events"); //TODO send a real error type
-            }
-            match self.events.try_pop() {
-                Some(event) =>  {
-                    done = true;
-                    return_event = Ok(event);
-                },
-                None => {}
-            }
-        }
-        return_event
-    }
-}
+use directory_scanner::{Directory, DirectoryEventBroker};
 
 pub struct DirectoryScanner {
     absolute_base: PathBuf,
     relative_base: PathBuf,
     pub event_broker: DirectoryEventBroker, // TODO remove this from being public
-    subscribers: Vec<Arc<Mutex<Sender<Directory>>>>,
     concurrency_limit: usize,
     pub max_concurrency_reached: usize,
     pub current_concurrency: Arc<AtomicUsize>, // TODO remove this from being public
@@ -86,7 +29,6 @@ impl DirectoryScanner {
         DirectoryScanner {
             absolute_base: absolute_base,
             relative_base: relative_base,
-            subscribers: vec![],
             max_concurrency_reached: 0,
             concurrency_limit: 9,
             current_concurrency: Arc::new(AtomicUsize::new(0)),
@@ -100,11 +42,12 @@ impl DirectoryScanner {
     pub fn scan(&mut self) -> Directory {
         self.last_event.store(time::now().to_timespec().sec as usize, Ordering::Relaxed);
         self.running_scanners.fetch_add(1, Ordering::Relaxed);
-        let mut file_system;
+        let file_system;
         match self.directory.clone() {
             Some(dir) => {
                 file_system = Directory::new(self.relative_base.clone());
                 dir.extend(&file_system) },
+
             None => {
                 file_system = Directory::new(self.relative_base.clone());
                 self.directory = Some(file_system.clone());
@@ -193,7 +136,6 @@ impl DirectoryScanner {
         }
         let local_path = path.clone();
         let local_current_concurrency = self.current_concurrency.clone();
-        let local_subscribers = self.subscribers.clone();
         let running_scanners = self.running_scanners.clone();
         let last_event = self.last_event.clone();
         let event_broker = self.event_broker.clone();

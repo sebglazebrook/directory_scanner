@@ -1,9 +1,7 @@
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
-use std::sync::mpsc::Sender;
 
-use directory_scanner::Directory;
 use super::super::DirectoryScanner;
 
 pub struct ScannerBuilder {

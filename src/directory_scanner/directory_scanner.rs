@@ -40,6 +40,7 @@ impl DirectoryScanner {
     }
 
     pub fn scan(&mut self) -> Directory {
+        info!("Starting to scan for files");
         self.last_event.store(time::now().to_timespec().sec as usize, Ordering::Relaxed);
         self.running_scanners.fetch_add(1, Ordering::Relaxed);
         let file_system;
